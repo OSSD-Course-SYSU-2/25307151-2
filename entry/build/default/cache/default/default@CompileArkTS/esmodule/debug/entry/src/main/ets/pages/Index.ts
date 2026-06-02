@@ -194,7 +194,29 @@ class Index extends ViewPU {
     initOptionTexts() {
         this.optionTexts = [];
         for (let i = 0; i < Common.IMAGES_TOTAL; i++) {
-            this.optionTexts.push(`选项${i + 1}`);
+            if (i === 0) {
+                // 选项一的默认文本设置为"一对笑面虎"
+                this.optionTexts.push('一对笑面虎');
+            }
+            else if (i === 1) {
+                // 选项二的默认文本设置为"两头乌角鲨"
+                this.optionTexts.push('两头乌角鲨');
+            }
+            else if (i === 2) {
+                // 选项三的默认文本设置为"三军听令，自刎归天"
+                this.optionTexts.push('三军听令，自刎归天');
+            }
+            else if (i === 3) {
+                // 选项四的默认文本设置为"死是凉爽的夏夜"
+                this.optionTexts.push('死是凉爽的夏夜');
+            }
+            else if (i === 4) {
+                // 选项五的默认文本设置为"五百个弟兄全死了都值"
+                this.optionTexts.push('五百个弟兄全死了都值');
+            }
+            else {
+                this.optionTexts.push(`选项${i + 1}`);
+            }
         }
     }
     // 启动语音识别
@@ -283,7 +305,7 @@ class Index extends ViewPU {
                         onSpinComplete: (index: number) => {
                             this.onWheelSpinComplete(index);
                         }
-                    }, undefined, elmtId, () => { }, { page: "entry/src/main/ets/pages/Index.ets", line: 148, col: 7 });
+                    }, undefined, elmtId, () => { }, { page: "entry/src/main/ets/pages/Index.ets", line: 165, col: 7 });
                     ViewPU.create(componentCall);
                     let paramsLambda = () => {
                         return {
@@ -484,7 +506,7 @@ class Index extends ViewPU {
                     // 数量控制器
                     CountController(this, {
                         quantity: this.__quantity
-                    }, undefined, elmtId, () => { }, { page: "entry/src/main/ets/pages/Index.ets", line: 278, col: 7 });
+                    }, undefined, elmtId, () => { }, { page: "entry/src/main/ets/pages/Index.ets", line: 295, col: 7 });
                     ViewPU.create(componentCall);
                     let paramsLambda = () => {
                         return {
