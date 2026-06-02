@@ -20,14 +20,18 @@ export class AudioPlayerService {
             await this.stop();
         }
         try {
+            console.info(`AudioPlayerService: Creating AVPlayer for ${fileName}`);
             // 创建AVPlayer
             this.avPlayer = await media.createAVPlayer();
+            console.info('AudioPlayerService: AVPlayer created');
             this.setAVPlayerCallback();
+            console.info('AudioPlayerService: Getting raw file descriptor');
             // 获取rawfile文件描述符
             const fileDescriptor = await this.context.resourceManager.getRawFd(fileName);
+            console.info(`AudioPlayerService: File descriptor - fd: ${fileDescriptor.fd}, offset: ${fileDescriptor.offset}, length: ${fileDescriptor.length}`);
             // 设置播放源
             this.avPlayer.fdSrc = fileDescriptor;
-            console.info(`AudioPlayerService: Started playing ${fileName}`);
+            console.info(`AudioPlayerService: Source set, waiting for playback`);
         }
         catch (error) {
             console.error(`AudioPlayerService: Failed to play audio - ${error}`);
@@ -88,8 +92,10 @@ export class AudioPlayerService {
                 case 'prepared':
                     // 开始播放
                     if (this.avPlayer) {
+                        console.info('AudioPlayerService: Starting playback');
                         await this.avPlayer.play();
                         this.isPlaying = true;
+                        console.info('AudioPlayerService: Playback started');
                     }
                     break;
                 case 'completed':

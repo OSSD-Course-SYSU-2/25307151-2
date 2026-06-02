@@ -13,6 +13,12 @@ interface Index_Params {
     showDestinyPanel?: boolean;
     voiceService?: VoiceRecognitionService;
     audioService?: AudioPlayerService;
+    buttonHeight?: number;
+    buttonFontSize?: number;
+    columnGap?: number;
+    buttonWidth?: number;
+    panelWidth?: number;
+    isLargeScreen?: boolean;
 }
 import { Wheel } from "@bundle:com.example.animation/entry/ets/view/Wheel";
 import { CountController } from "@bundle:com.example.animation/entry/ets/view/CountController";
@@ -21,6 +27,7 @@ import router from "@ohos:router";
 import { VoiceRecognitionService } from "@bundle:com.example.animation/entry/ets/service/VoiceRecognitionService";
 import { AudioPlayerService } from "@bundle:com.example.animation/entry/ets/service/AudioPlayerService";
 import type common from "@ohos:app.ability.common";
+import { getDeviceAdapter } from "@bundle:com.example.animation/entry/ets/common/utils/DeviceAdapter";
 class Index extends ViewPU {
     constructor(parent, params, __localStorage, elmtId = -1, paramsLambda = undefined, extraInfo) {
         super(parent, __localStorage, elmtId, extraInfo);
@@ -38,6 +45,12 @@ class Index extends ViewPU {
         this.__showDestinyPanel = new ObservedPropertySimplePU(false, this, "showDestinyPanel");
         this.voiceService = new VoiceRecognitionService();
         this.audioService = new AudioPlayerService();
+        this.buttonHeight = 45;
+        this.buttonFontSize = 14;
+        this.columnGap = 15;
+        this.buttonWidth = 140;
+        this.panelWidth = 300;
+        this.isLargeScreen = false;
         this.setInitiallyProvidedValue(params);
         this.finalizeConstruction();
     }
@@ -74,6 +87,24 @@ class Index extends ViewPU {
         }
         if (params.audioService !== undefined) {
             this.audioService = params.audioService;
+        }
+        if (params.buttonHeight !== undefined) {
+            this.buttonHeight = params.buttonHeight;
+        }
+        if (params.buttonFontSize !== undefined) {
+            this.buttonFontSize = params.buttonFontSize;
+        }
+        if (params.columnGap !== undefined) {
+            this.columnGap = params.columnGap;
+        }
+        if (params.buttonWidth !== undefined) {
+            this.buttonWidth = params.buttonWidth;
+        }
+        if (params.panelWidth !== undefined) {
+            this.panelWidth = params.panelWidth;
+        }
+        if (params.isLargeScreen !== undefined) {
+            this.isLargeScreen = params.isLargeScreen;
         }
     }
     updateStateVars(params: Index_Params) {
@@ -167,12 +198,41 @@ class Index extends ViewPU {
     }
     private voiceService: VoiceRecognitionService;
     private audioService: AudioPlayerService;
+    // 响应式布局参数
+    private buttonHeight: number;
+    private buttonFontSize: number;
+    private columnGap: number;
+    private buttonWidth: number; // 按钮固定宽度
+    private panelWidth: number; // 面板宽度
+    private isLargeScreen: boolean;
     aboutToAppear() {
         // 初始化选项文本
         this.initOptionTexts();
         // 初始化音频服务
         const context = getContext(this) as common.UIAbilityContext;
         this.audioService.init(context);
+        // 初始化响应式布局参数
+        this.initLayoutParams();
+    }
+    // 初始化响应式布局参数
+    private initLayoutParams(): void {
+        const adapter = getDeviceAdapter();
+        this.buttonHeight = adapter.getButtonHeight();
+        this.buttonFontSize = adapter.getButtonFontSize();
+        this.columnGap = adapter.getColumnGap();
+        this.isLargeScreen = adapter.isLargeScreen();
+        // 根据屏幕宽度计算按钮和面板宽度
+        const screenWidth = adapter.getScreenWidth();
+        if (this.isLargeScreen) {
+            // 大屏：固定宽度
+            this.buttonWidth = 160;
+            this.panelWidth = Math.min(500, screenWidth * 0.5);
+        }
+        else {
+            // 小屏：根据屏幕宽度自适应
+            this.buttonWidth = Math.min(140, screenWidth * 0.4);
+            this.panelWidth = Math.min(300, screenWidth * 0.85);
+        }
     }
     aboutToDisappear() {
         // 释放资源
@@ -213,6 +273,10 @@ class Index extends ViewPU {
             else if (i === 4) {
                 // 选项五的默认文本设置为"五百个弟兄全死了都值"
                 this.optionTexts.push('五百个弟兄全死了都值');
+            }
+            else if (i === 5) {
+                // 选项六的默认文本设置为"六亲不认，水火无敌"
+                this.optionTexts.push('六亲不认，水火无敌');
             }
             else {
                 this.optionTexts.push(`选项${i + 1}`);
@@ -285,12 +349,165 @@ class Index extends ViewPU {
             console.error(`Index: Failed to play audio after spin - ${error}`);
         }
     }
-    initialRender() {
+    // 构建左侧按钮列
+    leftButtons(parent = null) {
         this.observeComponentCreation2((elmtId, isInitialRender) => {
             Column.create();
-            Column.width(Common.DEFAULT_FULL_WIDTH);
-            Column.height(Common.DEFAULT_FULL_HEIGHT);
-            Column.backgroundColor({ "id": 16777224, "type": 10001, params: [], "bundleName": "com.example.animation", "moduleName": "entry" });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Button.createWithLabel('🎯 天意');
+            Button.width(this.buttonWidth);
+            Button.height(this.buttonHeight);
+            Button.fontSize(this.buttonFontSize);
+            Button.backgroundColor('#9C27B0');
+            Button.fontColor(Color.White);
+            Button.onClick(() => {
+                this.showDestinyPanel = !this.showDestinyPanel;
+            });
+        }, Button);
+        Button.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Button.createWithLabel(this.isVoiceListening ? '停止' : '监听');
+            Button.width(this.buttonWidth);
+            Button.height(this.buttonHeight);
+            Button.fontSize(this.buttonFontSize);
+            Button.backgroundColor(this.isVoiceListening ? '#F44336' : '#4CAF50');
+            Button.fontColor(Color.White);
+            Button.margin({ top: this.columnGap });
+            Button.onClick(() => {
+                if (this.isVoiceListening) {
+                    this.stopVoiceRecognition();
+                }
+                else {
+                    this.startVoiceRecognition();
+                }
+            });
+        }, Button);
+        Button.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Button.createWithLabel('测试');
+            Button.width(this.buttonWidth);
+            Button.height(this.buttonHeight);
+            Button.fontSize(this.buttonFontSize);
+            Button.backgroundColor('#2196F3');
+            Button.fontColor(Color.White);
+            Button.margin({ top: this.columnGap });
+            Button.onClick(async () => {
+                try {
+                    await this.audioService.playFromRawFile('guanyu.mp3');
+                }
+                catch (error) {
+                    console.error(`Test play failed: ${error}`);
+                }
+            });
+        }, Button);
+        Button.pop();
+        Column.pop();
+    }
+    // 构建右侧按钮列
+    rightButtons(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Button.createWithLabel(this.isWheelSpinning ? '旋转中' : '开始');
+            Button.width(this.buttonWidth);
+            Button.height(this.buttonHeight);
+            Button.fontSize(this.buttonFontSize);
+            Button.backgroundColor(this.isWheelSpinning ? '#CCCCCC' : '#FF6B6B');
+            Button.fontColor(Color.White);
+            Button.enabled(!this.isWheelSpinning);
+            Button.onClick(() => {
+                this.spinTrigger++;
+            });
+        }, Button);
+        Button.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Button.createWithLabel('编辑');
+            Button.width(this.buttonWidth);
+            Button.height(this.buttonHeight);
+            Button.fontSize(this.buttonFontSize);
+            Button.backgroundColor('#FF9800');
+            Button.fontColor(Color.White);
+            Button.margin({ top: this.columnGap });
+            Button.onClick(() => {
+                router.pushUrl({
+                    url: 'pages/OptionEditor',
+                    params: {
+                        quantity: this.quantity,
+                        optionTexts: this.optionTexts.slice(0, this.quantity)
+                    }
+                });
+            });
+        }, Button);
+        Button.pop();
+        Column.pop();
+    }
+    // 天意面板
+    destinyPanelBuilder(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            if (this.showDestinyPanel) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Column.create();
+                        Column.width(this.panelWidth);
+                        Column.padding(15);
+                        Column.backgroundColor('#F3E5F5');
+                        Column.borderRadius(12);
+                        Column.margin({ top: 10 });
+                    }, Column);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create('选择天意目标');
+                        Text.fontSize(this.buttonFontSize);
+                        Text.fontColor('#666666');
+                        Text.margin({ bottom: 10 });
+                    }, Text);
+                    Text.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Flex.create({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.SpaceEvenly });
+                        Flex.width('100%');
+                    }, Flex);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        ForEach.create();
+                        const forEachItemGenFunction = _item => {
+                            const index = _item;
+                            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                Button.createWithLabel(this.optionTexts[index] || `选项${index + 1}`);
+                                Button.width(this.buttonWidth);
+                                Button.height(this.buttonHeight - 5);
+                                Button.fontSize(this.buttonFontSize - 2);
+                                Button.backgroundColor('#E1BEE7');
+                                Button.fontColor('#4A148C');
+                                Button.margin({ top: 8, bottom: 8 });
+                                Button.onClick(() => {
+                                    this.destinyTargetIndex = index;
+                                    this.destinyTrigger++;
+                                    this.showDestinyPanel = false;
+                                });
+                            }, Button);
+                            Button.pop();
+                        };
+                        this.forEachUpdateFunction(elmtId, this.getDestinyOptions(), forEachItemGenFunction);
+                    }, ForEach);
+                    ForEach.pop();
+                    Flex.pop();
+                    Column.pop();
+                });
+            }
+            else // Phone布局：按钮在下方
+             {
+                this.ifElseBranchUpdateFunction(1, () => {
+                });
+            }
+        }, If);
+        If.pop();
+    }
+    // Phone布局：按钮在下方
+    phoneLayout(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.width('100%');
         }, Column);
         {
             this.observeComponentCreation2((elmtId, isInitialRender) => {
@@ -305,7 +522,7 @@ class Index extends ViewPU {
                         onSpinComplete: (index: number) => {
                             this.onWheelSpinComplete(index);
                         }
-                    }, undefined, elmtId, () => { }, { page: "entry/src/main/ets/pages/Index.ets", line: 165, col: 7 });
+                    }, undefined, elmtId, () => { }, { page: "entry/src/main/ets/pages/Index.ets", line: 317, col: 7 });
                     ViewPU.create(componentCall);
                     let paramsLambda = () => {
                         return {
@@ -327,21 +544,16 @@ class Index extends ViewPU {
                 }
             }, { name: "Wheel" });
         }
+        this.destinyPanelBuilder.bind(this)();
         this.observeComponentCreation2((elmtId, isInitialRender) => {
-            // 天意功能区域
             Row.create();
-            // 天意功能区域
-            Row.width('100%');
-            // 天意功能区域
-            Row.justifyContent(FlexAlign.Center);
-            // 天意功能区域
-            Row.margin({ top: 15 });
+            Row.margin({ top: this.columnGap });
         }, Row);
         this.observeComponentCreation2((elmtId, isInitialRender) => {
             Button.createWithLabel('🎯 天意');
-            Button.width('80%');
-            Button.height(45);
-            Button.fontSize(16);
+            Button.width(this.buttonWidth);
+            Button.height(this.buttonHeight);
+            Button.fontSize(this.buttonFontSize);
             Button.backgroundColor('#9C27B0');
             Button.fontColor(Color.White);
             Button.onClick(() => {
@@ -349,125 +561,54 @@ class Index extends ViewPU {
             });
         }, Button);
         Button.pop();
-        // 天意功能区域
-        Row.pop();
         this.observeComponentCreation2((elmtId, isInitialRender) => {
-            If.create();
-            // 天意选项面板
-            if (this.showDestinyPanel) {
-                this.ifElseBranchUpdateFunction(0, () => {
-                    this.observeComponentCreation2((elmtId, isInitialRender) => {
-                        Column.create();
-                        Column.width('85%');
-                        Column.padding(15);
-                        Column.backgroundColor('#F3E5F5');
-                        Column.borderRadius(12);
-                        Column.margin({ top: 10 });
-                    }, Column);
-                    this.observeComponentCreation2((elmtId, isInitialRender) => {
-                        Text.create('选择天意目标');
-                        Text.fontSize(16);
-                        Text.fontColor('#666666');
-                        Text.margin({ bottom: 10 });
-                    }, Text);
-                    Text.pop();
-                    this.observeComponentCreation2((elmtId, isInitialRender) => {
-                        Flex.create({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.SpaceEvenly });
-                        Flex.width('90%');
-                    }, Flex);
-                    this.observeComponentCreation2((elmtId, isInitialRender) => {
-                        ForEach.create();
-                        const forEachItemGenFunction = _item => {
-                            const index = _item;
-                            this.observeComponentCreation2((elmtId, isInitialRender) => {
-                                Button.createWithLabel(this.optionTexts[index] || `选项${index + 1}`);
-                                Button.width('40%');
-                                Button.height(40);
-                                Button.fontSize(14);
-                                Button.backgroundColor('#E1BEE7');
-                                Button.fontColor('#4A148C');
-                                Button.margin({ top: 8, bottom: 8 });
-                                Button.onClick(() => {
-                                    this.destinyTargetIndex = index;
-                                    this.destinyTrigger++;
-                                    this.showDestinyPanel = false;
-                                });
-                            }, Button);
-                            Button.pop();
-                        };
-                        this.forEachUpdateFunction(elmtId, this.getDestinyOptions(), forEachItemGenFunction);
-                    }, ForEach);
-                    ForEach.pop();
-                    Flex.pop();
-                    Column.pop();
-                });
-            }
-            // 上方按钮行：开始抽奖 + 编辑选项
-            else {
-                this.ifElseBranchUpdateFunction(1, () => {
-                });
-            }
-        }, If);
-        If.pop();
-        this.observeComponentCreation2((elmtId, isInitialRender) => {
-            // 上方按钮行：开始抽奖 + 编辑选项
-            Row.create();
-            // 上方按钮行：开始抽奖 + 编辑选项
-            Row.width('80%');
-            // 上方按钮行：开始抽奖 + 编辑选项
-            Row.justifyContent(FlexAlign.SpaceEvenly);
-            // 上方按钮行：开始抽奖 + 编辑选项
-            Row.margin({ top: 20 });
-        }, Row);
+            Blank.create();
+            Blank.width(this.columnGap);
+        }, Blank);
+        Blank.pop();
         this.observeComponentCreation2((elmtId, isInitialRender) => {
             Button.createWithLabel(this.isWheelSpinning ? '旋转中...' : '开始抽奖');
-            Button.width('45%');
-            Button.height(50);
-            Button.fontSize(16);
+            Button.width(this.buttonWidth);
+            Button.height(this.buttonHeight);
+            Button.fontSize(this.buttonFontSize);
             Button.backgroundColor(this.isWheelSpinning ? '#CCCCCC' : '#FF6B6B');
             Button.fontColor(Color.White);
             Button.enabled(!this.isWheelSpinning);
             Button.onClick(() => {
-                // 触发转盘旋转
                 this.spinTrigger++;
             });
         }, Button);
         Button.pop();
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.margin({ top: this.columnGap });
+        }, Row);
         this.observeComponentCreation2((elmtId, isInitialRender) => {
             Button.createWithLabel('编辑选项');
-            Button.width('45%');
-            Button.height(50);
-            Button.fontSize(16);
+            Button.width(this.buttonWidth);
+            Button.height(this.buttonHeight);
+            Button.fontSize(this.buttonFontSize);
             Button.backgroundColor('#FF9800');
             Button.fontColor(Color.White);
             Button.onClick(() => {
                 router.pushUrl({
                     url: 'pages/OptionEditor',
-                    params: {
-                        quantity: this.quantity,
-                        optionTexts: this.optionTexts.slice(0, this.quantity)
-                    }
+                    params: { quantity: this.quantity, optionTexts: this.optionTexts.slice(0, this.quantity) }
                 });
             });
         }, Button);
         Button.pop();
-        // 上方按钮行：开始抽奖 + 编辑选项
-        Row.pop();
         this.observeComponentCreation2((elmtId, isInitialRender) => {
-            // 下方按钮行：开始监听 + 测试播放
-            Row.create();
-            // 下方按钮行：开始监听 + 测试播放
-            Row.width('80%');
-            // 下方按钮行：开始监听 + 测试播放
-            Row.justifyContent(FlexAlign.SpaceEvenly);
-            // 下方按钮行：开始监听 + 测试播放
-            Row.margin({ top: 15 });
-        }, Row);
+            Blank.create();
+            Blank.width(this.columnGap);
+        }, Blank);
+        Blank.pop();
         this.observeComponentCreation2((elmtId, isInitialRender) => {
             Button.createWithLabel(this.isVoiceListening ? '停止监听' : '开始监听');
-            Button.width('45%');
-            Button.height(50);
-            Button.fontSize(16);
+            Button.width(this.buttonWidth);
+            Button.height(this.buttonHeight);
+            Button.fontSize(this.buttonFontSize);
             Button.backgroundColor(this.isVoiceListening ? '#F44336' : '#4CAF50');
             Button.fontColor(Color.White);
             Button.onClick(() => {
@@ -480,33 +621,11 @@ class Index extends ViewPU {
             });
         }, Button);
         Button.pop();
-        this.observeComponentCreation2((elmtId, isInitialRender) => {
-            Button.createWithLabel('测试播放');
-            Button.width('45%');
-            Button.height(50);
-            Button.fontSize(16);
-            Button.backgroundColor('#2196F3');
-            Button.fontColor(Color.White);
-            Button.onClick(async () => {
-                try {
-                    await this.audioService.playFromRawFile('guanyu.mp3');
-                }
-                catch (error) {
-                    console.error(`Test play failed: ${error}`);
-                }
-            });
-        }, Button);
-        Button.pop();
-        // 下方按钮行：开始监听 + 测试播放
         Row.pop();
         {
             this.observeComponentCreation2((elmtId, isInitialRender) => {
                 if (isInitialRender) {
-                    let componentCall = new 
-                    // 数量控制器
-                    CountController(this, {
-                        quantity: this.__quantity
-                    }, undefined, elmtId, () => { }, { page: "entry/src/main/ets/pages/Index.ets", line: 295, col: 7 });
+                    let componentCall = new CountController(this, { quantity: this.__quantity }, undefined, elmtId, () => { }, { page: "entry/src/main/ets/pages/Index.ets", line: 389, col: 7 });
                     ViewPU.create(componentCall);
                     let paramsLambda = () => {
                         return {
@@ -521,6 +640,199 @@ class Index extends ViewPU {
             }, { name: "CountController" });
         }
         Column.pop();
+    }
+    // 2in1/Tablet布局：按钮在两侧
+    largeLayout(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.width('100%');
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.width('100%');
+            Row.alignItems(VerticalAlign.Top);
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 左侧按钮
+            Column.create();
+            // 左侧按钮
+            Column.layoutWeight(1);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Button.createWithLabel('🎯 天意');
+            Button.width(this.buttonWidth);
+            Button.height(this.buttonHeight);
+            Button.fontSize(this.buttonFontSize);
+            Button.backgroundColor('#9C27B0');
+            Button.fontColor(Color.White);
+            Button.onClick(() => {
+                this.showDestinyPanel = !this.showDestinyPanel;
+            });
+        }, Button);
+        Button.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Button.createWithLabel(this.isVoiceListening ? '停止' : '监听');
+            Button.width(this.buttonWidth);
+            Button.height(this.buttonHeight);
+            Button.fontSize(this.buttonFontSize);
+            Button.backgroundColor(this.isVoiceListening ? '#F44336' : '#4CAF50');
+            Button.fontColor(Color.White);
+            Button.margin({ top: this.columnGap });
+            Button.onClick(() => {
+                if (this.isVoiceListening) {
+                    this.stopVoiceRecognition();
+                }
+                else {
+                    this.startVoiceRecognition();
+                }
+            });
+        }, Button);
+        Button.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Button.createWithLabel('测试');
+            Button.width(this.buttonWidth);
+            Button.height(this.buttonHeight);
+            Button.fontSize(this.buttonFontSize);
+            Button.backgroundColor('#2196F3');
+            Button.fontColor(Color.White);
+            Button.margin({ top: this.columnGap });
+            Button.onClick(async () => {
+                try {
+                    await this.audioService.playFromRawFile('guanyu.mp3');
+                }
+                catch (error) {
+                    console.error(`Test play failed: ${error}`);
+                }
+            });
+        }, Button);
+        Button.pop();
+        // 左侧按钮
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 中间转盘
+            Column.create();
+            // 中间转盘
+            Column.layoutWeight(2);
+        }, Column);
+        {
+            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                if (isInitialRender) {
+                    let componentCall = new Wheel(this, {
+                        quantity: this.__quantity,
+                        optionTexts: this.__optionTexts,
+                        isSpinningState: this.__isWheelSpinning,
+                        spinTrigger: this.__spinTrigger,
+                        destinyTrigger: this.__destinyTrigger,
+                        destinyTargetIndex: this.__destinyTargetIndex,
+                        onSpinComplete: (index: number) => {
+                            this.onWheelSpinComplete(index);
+                        }
+                    }, undefined, elmtId, () => { }, { page: "entry/src/main/ets/pages/Index.ets", line: 445, col: 11 });
+                    ViewPU.create(componentCall);
+                    let paramsLambda = () => {
+                        return {
+                            quantity: this.quantity,
+                            optionTexts: this.optionTexts,
+                            isSpinningState: this.isWheelSpinning,
+                            spinTrigger: this.spinTrigger,
+                            destinyTrigger: this.destinyTrigger,
+                            destinyTargetIndex: this.destinyTargetIndex,
+                            onSpinComplete: (index: number) => {
+                                this.onWheelSpinComplete(index);
+                            }
+                        };
+                    };
+                    componentCall.paramsGenerator_ = paramsLambda;
+                }
+                else {
+                    this.updateStateVarsOfChildByElmtId(elmtId, {});
+                }
+            }, { name: "Wheel" });
+        }
+        this.destinyPanelBuilder.bind(this)();
+        // 中间转盘
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 右侧按钮
+            Column.create();
+            // 右侧按钮
+            Column.layoutWeight(1);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Button.createWithLabel(this.isWheelSpinning ? '旋转中' : '开始');
+            Button.width(this.buttonWidth);
+            Button.height(this.buttonHeight);
+            Button.fontSize(this.buttonFontSize);
+            Button.backgroundColor(this.isWheelSpinning ? '#CCCCCC' : '#FF6B6B');
+            Button.fontColor(Color.White);
+            Button.enabled(!this.isWheelSpinning);
+            Button.onClick(() => {
+                this.spinTrigger++;
+            });
+        }, Button);
+        Button.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Button.createWithLabel('编辑');
+            Button.width(this.buttonWidth);
+            Button.height(this.buttonHeight);
+            Button.fontSize(this.buttonFontSize);
+            Button.backgroundColor('#FF9800');
+            Button.fontColor(Color.White);
+            Button.margin({ top: this.columnGap });
+            Button.onClick(() => {
+                router.pushUrl({
+                    url: 'pages/OptionEditor',
+                    params: { quantity: this.quantity, optionTexts: this.optionTexts.slice(0, this.quantity) }
+                });
+            });
+        }, Button);
+        Button.pop();
+        // 右侧按钮
+        Column.pop();
+        Row.pop();
+        {
+            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                if (isInitialRender) {
+                    let componentCall = new CountController(this, { quantity: this.__quantity }, undefined, elmtId, () => { }, { page: "entry/src/main/ets/pages/Index.ets", line: 493, col: 7 });
+                    ViewPU.create(componentCall);
+                    let paramsLambda = () => {
+                        return {
+                            quantity: this.quantity
+                        };
+                    };
+                    componentCall.paramsGenerator_ = paramsLambda;
+                }
+                else {
+                    this.updateStateVarsOfChildByElmtId(elmtId, {});
+                }
+            }, { name: "CountController" });
+        }
+        Column.pop();
+    }
+    initialRender() {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Scroll.create();
+            Scroll.width(Common.DEFAULT_FULL_WIDTH);
+            Scroll.height(Common.DEFAULT_FULL_HEIGHT);
+            Scroll.backgroundColor({ "id": 16777224, "type": 10001, params: [], "bundleName": "com.example.animation", "moduleName": "entry" });
+            Scroll.scrollBar(BarState.Off);
+            Scroll.edgeEffect(EdgeEffect.Spring);
+        }, Scroll);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            if (this.isLargeScreen) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.largeLayout.bind(this)();
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                    this.phoneLayout.bind(this)();
+                });
+            }
+        }, If);
+        If.pop();
+        Scroll.pop();
     }
     rerender() {
         this.updateDirtyElements();

@@ -20,6 +20,7 @@ import router from '@ohos.router';
 import { VoiceRecognitionService } from '../service/VoiceRecognitionService';
 import { AudioPlayerService } from '../service/AudioPlayerService';
 import common from '@ohos.app.ability.common';
+import { getDeviceAdapter, BreakpointType } from '../common/utils/DeviceAdapter';
 
 @Entry
 @Component
@@ -35,6 +36,13 @@ struct Index {
   @State showDestinyPanel: boolean = false; // 是否显示天意面板
   private voiceService: VoiceRecognitionService = new VoiceRecognitionService();
   private audioService: AudioPlayerService = new AudioPlayerService();
+  // 响应式布局参数
+  private buttonHeight: number = 45;
+  private buttonFontSize: number = 14;
+  private columnGap: number = 15;
+  private buttonWidth: number = 140; // 按钮固定宽度
+  private panelWidth: number = 300; // 面板宽度
+  private isLargeScreen: boolean = false;
 
   aboutToAppear() {
     // 初始化选项文本
@@ -42,6 +50,29 @@ struct Index {
     // 初始化音频服务
     const context = getContext(this) as common.UIAbilityContext;
     this.audioService.init(context);
+    // 初始化响应式布局参数
+    this.initLayoutParams();
+  }
+
+  // 初始化响应式布局参数
+  private initLayoutParams(): void {
+    const adapter = getDeviceAdapter();
+    this.buttonHeight = adapter.getButtonHeight();
+    this.buttonFontSize = adapter.getButtonFontSize();
+    this.columnGap = adapter.getColumnGap();
+    this.isLargeScreen = adapter.isLargeScreen();
+    
+    // 根据屏幕宽度计算按钮和面板宽度
+    const screenWidth = adapter.getScreenWidth();
+    if (this.isLargeScreen) {
+      // 大屏：固定宽度
+      this.buttonWidth = 160;
+      this.panelWidth = Math.min(500, screenWidth * 0.5);
+    } else {
+      // 小屏：根据屏幕宽度自适应
+      this.buttonWidth = Math.min(140, screenWidth * 0.4);
+      this.panelWidth = Math.min(300, screenWidth * 0.85);
+    }
   }
 
   aboutToDisappear() {
@@ -97,7 +128,7 @@ struct Index {
       // 检测到触发词"释怀"时的回调
       this.onTriggerWordDetected();
     });
-    
+
     if (success) {
       this.isVoiceListening = true;
       this.voiceStatus = '正在监听中';
@@ -126,16 +157,16 @@ struct Index {
   async onTriggerWordDetected() {
     console.info('Index: Trigger word "释怀" detected!');
     this.voiceStatus = '检测到"释怀"！播放音乐...';
-    
+
     try {
       // 播放音频文件
       // 注意：你需要将音频文件放在 entry/src/main/resources/rawfile/ 目录下
       // 文件名需要替换为你实际的音频文件名
       // 例如：await this.audioService.playFromRawFile('guanyu_song.mp3');
-      
+
       // 这里使用一个示例文件名，请替换为你的实际文件
       await this.audioService.playFromRawFile('guanyu.mp3');
-      
+
       // 播放完成后恢复监听状态
       setTimeout(() => {
         if (this.isVoiceListening) {
@@ -153,7 +184,7 @@ struct Index {
     console.info(`Index: Wheel spin completed, selected index: ${selectedIndex}`);
     const selectedOption = this.optionTexts[selectedIndex] || `选项${selectedIndex + 1}`;
     console.info(`Index: Selected option: ${selectedOption}`);
-    
+
     // 自动播放音频
     try {
       console.info('Index: Auto-playing audio after spin complete');
@@ -163,7 +194,125 @@ struct Index {
     }
   }
 
-  build() {
+  // 构建左侧按钮列
+  @Builder
+  leftButtons() {
+    Column() {
+      Button('🎯 天意')
+        .width(this.buttonWidth)
+        .height(this.buttonHeight)
+        .fontSize(this.buttonFontSize)
+        .backgroundColor('#9C27B0')
+        .fontColor(Color.White)
+        .onClick(() => {
+          this.showDestinyPanel = !this.showDestinyPanel;
+        })
+
+      Button(this.isVoiceListening ? '停止' : '监听')
+        .width(this.buttonWidth)
+        .height(this.buttonHeight)
+        .fontSize(this.buttonFontSize)
+        .backgroundColor(this.isVoiceListening ? '#F44336' : '#4CAF50')
+        .fontColor(Color.White)
+        .margin({ top: this.columnGap })
+        .onClick(() => {
+          if (this.isVoiceListening) {
+            this.stopVoiceRecognition();
+          } else {
+            this.startVoiceRecognition();
+          }
+        })
+
+      Button('测试')
+        .width(this.buttonWidth)
+        .height(this.buttonHeight)
+        .fontSize(this.buttonFontSize)
+        .backgroundColor('#2196F3')
+        .fontColor(Color.White)
+        .margin({ top: this.columnGap })
+        .onClick(async () => {
+          try {
+            await this.audioService.playFromRawFile('guanyu.mp3');
+          } catch (error) {
+            console.error(`Test play failed: ${error}`);
+          }
+        })
+    }
+  }
+
+  // 构建右侧按钮列
+  @Builder
+  rightButtons() {
+    Column() {
+      Button(this.isWheelSpinning ? '旋转中' : '开始')
+        .width(this.buttonWidth)
+        .height(this.buttonHeight)
+        .fontSize(this.buttonFontSize)
+        .backgroundColor(this.isWheelSpinning ? '#CCCCCC' : '#FF6B6B')
+        .fontColor(Color.White)
+        .enabled(!this.isWheelSpinning)
+        .onClick(() => {
+          this.spinTrigger++;
+        })
+
+      Button('编辑')
+        .width(this.buttonWidth)
+        .height(this.buttonHeight)
+        .fontSize(this.buttonFontSize)
+        .backgroundColor('#FF9800')
+        .fontColor(Color.White)
+        .margin({ top: this.columnGap })
+        .onClick(() => {
+          router.pushUrl({
+            url: 'pages/OptionEditor',
+            params: {
+              quantity: this.quantity,
+              optionTexts: this.optionTexts.slice(0, this.quantity)
+            }
+          });
+        })
+    }
+  }
+
+  // 天意面板
+  @Builder
+  destinyPanelBuilder() {
+    if (this.showDestinyPanel) {
+      Column() {
+        Text('选择天意目标')
+          .fontSize(this.buttonFontSize)
+          .fontColor('#666666')
+          .margin({ bottom: 10 })
+
+        Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.SpaceEvenly }) {
+          ForEach(this.getDestinyOptions(), (index: number) => {
+            Button(this.optionTexts[index] || `选项${index + 1}`)
+              .width(this.buttonWidth)
+              .height(this.buttonHeight - 5)
+              .fontSize(this.buttonFontSize - 2)
+              .backgroundColor('#E1BEE7')
+              .fontColor('#4A148C')
+              .margin({ top: 8, bottom: 8 })
+              .onClick(() => {
+                this.destinyTargetIndex = index;
+                this.destinyTrigger++;
+                this.showDestinyPanel = false;
+              })
+          })
+        }
+        .width('100%')
+      }
+      .width(this.panelWidth)
+      .padding(15)
+      .backgroundColor('#F3E5F5')
+      .borderRadius(12)
+      .margin({ top: 10 })
+    }
+  }
+
+  // Phone布局：按钮在下方
+  @Builder
+  phoneLayout() {
     Column() {
       Wheel({
         quantity: $quantity,
@@ -177,95 +326,54 @@ struct Index {
         }
       })
 
-      // 天意功能区域
+      this.destinyPanelBuilder()
+
       Row() {
         Button('🎯 天意')
-          .width('80%')
-          .height(45)
-          .fontSize(16)
+          .width(this.buttonWidth)
+          .height(this.buttonHeight)
+          .fontSize(this.buttonFontSize)
           .backgroundColor('#9C27B0')
           .fontColor(Color.White)
           .onClick(() => {
             this.showDestinyPanel = !this.showDestinyPanel;
           })
-      }
-      .width('100%')
-      .justifyContent(FlexAlign.Center)
-      .margin({ top: 15 })
 
-      // 天意选项面板
-      if (this.showDestinyPanel) {
-        Column() {
-          Text('选择天意目标')
-            .fontSize(16)
-            .fontColor('#666666')
-            .margin({ bottom: 10 })
+        Blank().width(this.columnGap)
 
-          Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.SpaceEvenly }) {
-            ForEach(this.getDestinyOptions(), (index: number) => {
-              Button(this.optionTexts[index] || `选项${index + 1}`)
-                .width('40%')
-                .height(40)
-                .fontSize(14)
-                .backgroundColor('#E1BEE7')
-                .fontColor('#4A148C')
-                .margin({ top: 8, bottom: 8 })
-                .onClick(() => {
-                  this.destinyTargetIndex = index;
-                  this.destinyTrigger++;
-                  this.showDestinyPanel = false;
-                })
-            })
-          }
-          .width('90%')
-        }
-        .width('85%')
-        .padding(15)
-        .backgroundColor('#F3E5F5')
-        .borderRadius(12)
-        .margin({ top: 10 })
-      }
-
-      // 上方按钮行：开始抽奖 + 编辑选项
-      Row() {
         Button(this.isWheelSpinning ? '旋转中...' : '开始抽奖')
-          .width('45%')
-          .height(50)
-          .fontSize(16)
+          .width(this.buttonWidth)
+          .height(this.buttonHeight)
+          .fontSize(this.buttonFontSize)
           .backgroundColor(this.isWheelSpinning ? '#CCCCCC' : '#FF6B6B')
           .fontColor(Color.White)
           .enabled(!this.isWheelSpinning)
           .onClick(() => {
-            // 触发转盘旋转
             this.spinTrigger++;
           })
+      }
+      .margin({ top: this.columnGap })
 
+      Row() {
         Button('编辑选项')
-          .width('45%')
-          .height(50)
-          .fontSize(16)
+          .width(this.buttonWidth)
+          .height(this.buttonHeight)
+          .fontSize(this.buttonFontSize)
           .backgroundColor('#FF9800')
           .fontColor(Color.White)
           .onClick(() => {
             router.pushUrl({
               url: 'pages/OptionEditor',
-              params: {
-                quantity: this.quantity,
-                optionTexts: this.optionTexts.slice(0, this.quantity)
-              }
+              params: { quantity: this.quantity, optionTexts: this.optionTexts.slice(0, this.quantity) }
             });
           })
-      }
-      .width('80%')
-      .justifyContent(FlexAlign.SpaceEvenly)
-      .margin({ top: 20 })
 
-      // 下方按钮行：开始监听 + 测试播放
-      Row() {
+        Blank().width(this.columnGap)
+
         Button(this.isVoiceListening ? '停止监听' : '开始监听')
-          .width('45%')
-          .height(50)
-          .fontSize(16)
+          .width(this.buttonWidth)
+          .height(this.buttonHeight)
+          .fontSize(this.buttonFontSize)
           .backgroundColor(this.isVoiceListening ? '#F44336' : '#4CAF50')
           .fontColor(Color.White)
           .onClick(() => {
@@ -275,32 +383,130 @@ struct Index {
               this.startVoiceRecognition();
             }
           })
+      }
+      .margin({ top: this.columnGap })
 
-        Button('测试播放')
-          .width('45%')
-          .height(50)
-          .fontSize(16)
-          .backgroundColor('#2196F3')
-          .fontColor(Color.White)
-          .onClick(async () => {
-            try {
-              await this.audioService.playFromRawFile('guanyu.mp3');
-            } catch (error) {
-              console.error(`Test play failed: ${error}`);
+      CountController({ quantity: $quantity })
+    }
+    .width('100%')
+  }
+
+  // 2in1/Tablet布局：按钮在两侧
+  @Builder
+  largeLayout() {
+    Column() {
+      Row() {
+        // 左侧按钮
+        Column() {
+          Button('🎯 天意')
+            .width(this.buttonWidth)
+            .height(this.buttonHeight)
+            .fontSize(this.buttonFontSize)
+            .backgroundColor('#9C27B0')
+            .fontColor(Color.White)
+            .onClick(() => {
+              this.showDestinyPanel = !this.showDestinyPanel;
+            })
+
+          Button(this.isVoiceListening ? '停止' : '监听')
+            .width(this.buttonWidth)
+            .height(this.buttonHeight)
+            .fontSize(this.buttonFontSize)
+            .backgroundColor(this.isVoiceListening ? '#F44336' : '#4CAF50')
+            .fontColor(Color.White)
+            .margin({ top: this.columnGap })
+            .onClick(() => {
+              if (this.isVoiceListening) {
+                this.stopVoiceRecognition();
+              } else {
+                this.startVoiceRecognition();
+              }
+            })
+
+          Button('测试')
+            .width(this.buttonWidth)
+            .height(this.buttonHeight)
+            .fontSize(this.buttonFontSize)
+            .backgroundColor('#2196F3')
+            .fontColor(Color.White)
+            .margin({ top: this.columnGap })
+            .onClick(async () => {
+              try {
+                await this.audioService.playFromRawFile('guanyu.mp3');
+              } catch (error) {
+                console.error(`Test play failed: ${error}`);
+              }
+            })
+        }
+        .layoutWeight(1)
+
+        // 中间转盘
+        Column() {
+          Wheel({
+            quantity: $quantity,
+            optionTexts: $optionTexts,
+            isSpinningState: $isWheelSpinning,
+            spinTrigger: $spinTrigger,
+            destinyTrigger: $destinyTrigger,
+            destinyTargetIndex: $destinyTargetIndex,
+            onSpinComplete: (index: number) => {
+              this.onWheelSpinComplete(index);
             }
           })
-      }
-      .width('80%')
-      .justifyContent(FlexAlign.SpaceEvenly)
-      .margin({ top: 15 })
 
-      // 数量控制器
-      CountController({
-        quantity: $quantity
-      })
+          this.destinyPanelBuilder()
+        }
+        .layoutWeight(2)
+
+        // 右侧按钮
+        Column() {
+          Button(this.isWheelSpinning ? '旋转中' : '开始')
+            .width(this.buttonWidth)
+            .height(this.buttonHeight)
+            .fontSize(this.buttonFontSize)
+            .backgroundColor(this.isWheelSpinning ? '#CCCCCC' : '#FF6B6B')
+            .fontColor(Color.White)
+            .enabled(!this.isWheelSpinning)
+            .onClick(() => {
+              this.spinTrigger++;
+            })
+
+          Button('编辑')
+            .width(this.buttonWidth)
+            .height(this.buttonHeight)
+            .fontSize(this.buttonFontSize)
+            .backgroundColor('#FF9800')
+            .fontColor(Color.White)
+            .margin({ top: this.columnGap })
+            .onClick(() => {
+              router.pushUrl({
+                url: 'pages/OptionEditor',
+                params: { quantity: this.quantity, optionTexts: this.optionTexts.slice(0, this.quantity) }
+              });
+            })
+        }
+        .layoutWeight(1)
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Top)
+
+      CountController({ quantity: $quantity })
+    }
+    .width('100%')
+  }
+
+  build() {
+    Scroll() {
+      if (this.isLargeScreen) {
+        this.largeLayout()
+      } else {
+        this.phoneLayout()
+      }
     }
     .width(Common.DEFAULT_FULL_WIDTH)
     .height(Common.DEFAULT_FULL_HEIGHT)
     .backgroundColor($r('app.color.bgColor'))
+    .scrollBar(BarState.Off)
+    .edgeEffect(EdgeEffect.Spring)
   }
 }

@@ -1,6 +1,7 @@
 
 import Common from '../common/constants/Const';
 import { curves } from '@kit.ArkUI';
+import { getDeviceAdapter, DeviceType } from '../common/utils/DeviceAdapter';
 
 // 字幕标签位置接口
 interface LabelPosition {
@@ -23,7 +24,13 @@ export struct Wheel {
   @State currentOption: string = '等待开始'; // 当前指针指向的选项
   private settings: RenderingContextSettings = new RenderingContextSettings(true);
   private context: CanvasRenderingContext2D = new CanvasRenderingContext2D(this.settings);
-  private wheelRadius: number = 150;
+  // 响应式转盘半径 - 根据设备类型自动调整
+  private wheelRadius: number = 130;
+  // 响应式布局参数
+  private titleFontSize: number = 20;
+  private labelFontSize: number = 10;
+  private labelWidth: number = 50;
+  private labelOffset: number = 45;
   private colors: string[] = [
     '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
     '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
@@ -33,6 +40,16 @@ export struct Wheel {
   private updateTimer: number = -1; // 定时器ID
   onSpinComplete?: (selectedIndex: number) => void; // 旋转完成回调
   onSpinStateChange?: (isSpinning: boolean) => void; // 旋转状态变化回调
+
+  aboutToAppear(): void {
+    // 初始化响应式布局参数
+    const adapter = getDeviceAdapter();
+    this.wheelRadius = adapter.getWheelRadius();
+    this.titleFontSize = adapter.getTitleFontSize();
+    this.labelFontSize = adapter.getLabelFontSize();
+    this.labelWidth = adapter.getLabelWidth();
+    this.labelOffset = adapter.getLabelOffset();
+  }
 
   // 暴露给父组件的方法
   startSpin() {
@@ -76,8 +93,11 @@ export struct Wheel {
     this.context.clearRect(0, 0, this.wheelRadius * 2, this.wheelRadius * 2);
 
     // 绘制每个扇形（不绘制文字）
+    // 起始角度偏移半个扇形，让选项0的中心在顶部(指针位置)
+    const startOffset = -Math.PI / 2 - anglePerSection / 2;
+    
     for (let i = 0; i < this.quantity; i++) {
-      const startAngle = i * anglePerSection - Math.PI / 2;
+      const startAngle = i * anglePerSection + startOffset;
       const endAngle = startAngle + anglePerSection;
 
       // 绘制扇形
@@ -121,15 +141,50 @@ export struct Wheel {
   }
 
   // 根据当前角度计算指针指向的选项
+  // 绘制时选项i的中心在 (i * anglePerSection - 90°) 位置(Canvas坐标)
+  // 指针固定在顶部(270° Canvas坐标)
   getCurrentOption(angle: number): string {
     const anglePerSection = 360 / this.quantity;
-    // 指针在顶部，需要计算转盘旋转后指针指向的位置
-    // 指针指向的角度 = 360 - (angle % 360)
-    const pointerAngle = (360 - (angle % 360)) % 360;
-    // 计算是第几个选项（从顶部顺时针方向）
-    const optionIndex = Math.floor(pointerAngle / anglePerSection);
+    // 将角度归一化到 0-360 范围
+    const normalizedAngle = ((angle % 360) + 360) % 360;
+    
+    // 旋转normalizedAngle度后，选项i的中心移动到 = i * anglePerSection - 90 + normalizedAngle
+    // 指针在270°，指向的选项满足: i * anglePerSection - 90 + normalizedAngle ≈ 270 (mod 360)
+    // 简化: i * anglePerSection + normalizedAngle ≈ 360 (mod 360)
+    // 即: i ≈ (360 - normalizedAngle) / anglePerSection
+    
+    let pointerValue = 360 - normalizedAngle;
+    // 确保为正数
+    while (pointerValue < 0) {
+      pointerValue += 360;
+    }
+    pointerValue = pointerValue % 360;
+    
+    const optionIndex = Math.floor(pointerValue / anglePerSection);
     return this.optionTexts[optionIndex] || `选项${optionIndex + 1}`;
   }
+  
+  // 计算旋转到目标选项所需的角度增量
+  private calculateTargetAngle(targetIndex: number): number {
+    const anglePerSection = 360 / this.quantity;
+    // 目标选项的中心角度(Canvas坐标) = targetIndex * anglePerSection - 90
+    // 指针在270°，需要让目标中心移动到270°
+    // 目标中心 + 当前角度 + 旋转增量 ≡ 270 (mod 360)
+    // 旋转增量 = 270 - 目标中心 - 当前角度 (mod 360)
+    // 旋转增量 = 270 - (targetIndex * anglePerSection - 90) - 当前角度 (mod 360)
+    // 旋转增量 = 360 - targetIndex * anglePerSection - 当前角度 (mod 360)
+    
+    const currentNormalized = ((this.rotateAngle % 360) + 360) % 360;
+    let delta = 360 - targetIndex * anglePerSection - currentNormalized;
+    // 确保正向旋转(顺时针)
+    while (delta < 0) {
+      delta += 360;
+    }
+    // 加上额外圈数
+    const extraRotations = 5 + Math.floor(Math.random() * 3);
+    return extraRotations * 360 + delta;
+  }
+  
   // 开始旋转
   spin() {
     if (this.isSpinning) {
@@ -137,58 +192,57 @@ export struct Wheel {
     }
 
     this.isSpinning = true;
-    this.isSpinningState = true; // 同步状态给父组件
+    this.isSpinningState = true;
     if (this.onSpinStateChange) {
       this.onSpinStateChange(true);
     }
     this.selectedIndex = -1;
     this.currentOption = '旋转中...';
 
-    // 随机选择结果（每个选项机会均等）
+    // 随机选择结果
     const targetIndex = Math.floor(Math.random() * this.quantity);
-    const anglePerSection = 360 / this.quantity;
     
-    // 计算目标角度（多转几圈 + 目标位置）
-    const extraRotations = 5 + Math.floor(Math.random() * 3); // 5-7圈
-    const targetAngle = extraRotations * 360 + (360 - targetIndex * anglePerSection - anglePerSection / 2);
-
-    // 使用更丝滑的动画 - 增加帧率到60fps（每16ms更新一次）
-    let currentAngle = 0;
-    const startAngle = 0;
-    const animationDuration = 3500; // 稍微缩短动画时间
-    const updateInterval = 16; // 60fps
+    // 计算需要旋转的角度增量
+    const angleDelta = this.calculateTargetAngle(targetIndex);
+    const startAngle = this.rotateAngle;
+    const targetAngle = startAngle + angleDelta;
+    
+    // 动画参数
+    const animationDuration = 3500;
+    const updateInterval = 16;
     const totalSteps = animationDuration / updateInterval;
-    const angleStep = (targetAngle - startAngle) / totalSteps;
+    const angleStep = angleDelta / totalSteps;
+    
+    // 用于更新显示的当前角度
+    let displayAngle = startAngle;
     
     this.updateTimer = setInterval(() => {
-      currentAngle += angleStep;
-      if (currentAngle >= targetAngle) {
+      displayAngle += angleStep;
+      if (displayAngle >= targetAngle) {
         clearInterval(this.updateTimer);
         this.currentOption = this.optionTexts[targetIndex] || `选项${targetIndex + 1}`;
       } else {
-        this.currentOption = this.getCurrentOption(currentAngle);
+        this.currentOption = this.getCurrentOption(displayAngle);
       }
     }, updateInterval);
 
-    // 使用更丝滑的动画曲线
+    // 执行旋转动画
     this.getUIContext().animateTo(
       {
         duration: animationDuration,
         curve: curves.springCurve(0, 1, 120, 12),
         onFinish: () => {
           this.isSpinning = false;
-          this.isSpinningState = false; // 同步状态给父组件
+          this.isSpinningState = false;
           if (this.onSpinStateChange) {
             this.onSpinStateChange(false);
           }
           this.selectedIndex = targetIndex;
           this.currentOption = this.optionTexts[targetIndex] || `选项${targetIndex + 1}`;
-          // 清除定时器
           if (this.updateTimer !== -1) {
             clearInterval(this.updateTimer);
             this.updateTimer = -1;
           }
-          // 调用旋转完成回调
           if (this.onSpinComplete) {
             this.onSpinComplete(targetIndex);
           }
@@ -211,56 +265,54 @@ export struct Wheel {
     }
 
     this.isSpinning = true;
-    this.isSpinningState = true; // 同步状态给父组件
+    this.isSpinningState = true;
     if (this.onSpinStateChange) {
       this.onSpinStateChange(true);
     }
     this.selectedIndex = -1;
     this.currentOption = '天意降临...';
 
-    const anglePerSection = 360 / this.quantity;
+    // 计算需要旋转的角度增量
+    const angleDelta = this.calculateTargetAngle(targetIndex);
+    const startAngle = this.rotateAngle;
+    const targetAngle = startAngle + angleDelta;
     
-    // 计算目标角度（多转几圈 + 目标位置）
-    const extraRotations = 5 + Math.floor(Math.random() * 3); // 5-7圈
-    const targetAngle = extraRotations * 360 + (360 - targetIndex * anglePerSection - anglePerSection / 2);
-
-    // 使用更丝滑的动画 - 增加帧率到60fps（每16ms更新一次）
-    let currentAngle = 0;
-    const startAngle = 0;
-    const animationDuration = 3500; // 稍微缩短动画时间
-    const updateInterval = 16; // 60fps
+    // 动画参数
+    const animationDuration = 3500;
+    const updateInterval = 16;
     const totalSteps = animationDuration / updateInterval;
-    const angleStep = (targetAngle - startAngle) / totalSteps;
+    const angleStep = angleDelta / totalSteps;
+    
+    // 用于更新显示的当前角度
+    let displayAngle = startAngle;
     
     this.updateTimer = setInterval(() => {
-      currentAngle += angleStep;
-      if (currentAngle >= targetAngle) {
+      displayAngle += angleStep;
+      if (displayAngle >= targetAngle) {
         clearInterval(this.updateTimer);
         this.currentOption = this.optionTexts[targetIndex] || `选项${targetIndex + 1}`;
       } else {
-        this.currentOption = this.getCurrentOption(currentAngle);
+        this.currentOption = this.getCurrentOption(displayAngle);
       }
     }, updateInterval);
 
-    // 使用更丝滑的动画曲线
+    // 执行旋转动画
     this.getUIContext().animateTo(
       {
         duration: animationDuration,
         curve: curves.springCurve(0, 1, 120, 12),
         onFinish: () => {
           this.isSpinning = false;
-          this.isSpinningState = false; // 同步状态给父组件
+          this.isSpinningState = false;
           if (this.onSpinStateChange) {
             this.onSpinStateChange(false);
           }
           this.selectedIndex = targetIndex;
           this.currentOption = this.optionTexts[targetIndex] || `选项${targetIndex + 1}`;
-          // 清除定时器
           if (this.updateTimer !== -1) {
             clearInterval(this.updateTimer);
             this.updateTimer = -1;
           }
-          // 调用旋转完成回调
           if (this.onSpinComplete) {
             this.onSpinComplete(targetIndex);
           }
@@ -275,18 +327,41 @@ export struct Wheel {
   // 字幕标签位置
   private labelPosition: LabelPosition = { x: 0, y: 0 };
 
+  // 获取索引数组
+  private getIndexArray(): number[] {
+    const arr: number[] = [];
+    for (let i = 0; i < this.quantity; i++) {
+      arr.push(i);
+    }
+    return arr;
+  }
+
   // 计算字幕标签位置
   getLabelPosition(index: number): LabelPosition {
     const anglePerSection = 360 / this.quantity;
-    const angle = index * anglePerSection - 90 + anglePerSection / 2;
+    const angle = index * anglePerSection - 90;
     const radians = angle * Math.PI / 180;
-    const labelRadius = this.wheelRadius + 50;
-    const centerX = this.wheelRadius + 60;
-    const centerY = this.wheelRadius + 60;
-    const labelX = centerX + labelRadius * Math.cos(radians);
-    const labelY = centerY + labelRadius * Math.sin(radians);
-    const result: LabelPosition = { x: labelX - (this.quantity > 8 ? 25 : 30), y: labelY - 15 };
-    return result;
+    
+    // 标签尺寸
+    const labelW = this.quantity > 8 ? this.labelWidth - 10 : this.labelWidth;
+    const labelH = 28;
+    
+    // 标签中心到转盘中心的距离
+    const labelRadius = this.wheelRadius + this.labelOffset;
+    
+    // Stack 中心位置
+    const stackSize = this.wheelRadius * 2 + this.labelOffset * 2 + 20;
+    const centerX = stackSize / 2;
+    const centerY = stackSize / 2;
+    
+    // 标签中心位置
+    const labelCenterX = centerX + labelRadius * Math.cos(radians);
+    const labelCenterY = centerY + labelRadius * Math.sin(radians);
+    
+    return { 
+      x: labelCenterX - labelW / 2, 
+      y: labelCenterY - labelH / 2 
+    };
   }
 
   build() {
@@ -294,7 +369,7 @@ export struct Wheel {
       // 当前选项显示框
       Column() {
         Text(this.currentOption)
-          .fontSize(24)
+          .fontSize(this.titleFontSize)
           .fontColor(this.isSpinning ? '#FF6B6B' : '#333333')
           .fontWeight(FontWeight.Bold)
       }
@@ -307,57 +382,64 @@ export struct Wheel {
       .margin({ top: 20, bottom: 10 })
 
       // 转盘和字幕区域
-      Stack() {
-        // 转盘画布
-        Canvas(this.context)
-          .width(this.wheelRadius * 2)
-          .height(this.wheelRadius * 2)
-          .onReady(() => {
-            this.canvasReady = true;
-            this.drawWheel();
-          })
-          .rotate({ angle: this.rotateAngle })
+      Stack({ alignContent: Alignment.Center }) {
+        // 旋转组：转盘 + 标签一起旋转
+        Stack() {
+          // 转盘画布
+          Canvas(this.context)
+            .width(this.wheelRadius * 2)
+            .height(this.wheelRadius * 2)
+            .onReady(() => {
+              this.canvasReady = true;
+              this.drawWheel();
+            })
 
-        // 指针
+          // 标签跟随转盘旋转
+          ForEach(this.getIndexArray(), (index: number) => {
+            Column() {
+              Text(this.optionTexts[index] || `选项${index + 1}`)
+                .fontSize(this.quantity > 8 ? this.labelFontSize - 2 : this.labelFontSize)
+                .fontColor('#333333')
+                .fontWeight(FontWeight.Medium)
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+            }
+            .width(this.quantity > 8 ? this.labelWidth - 10 : this.labelWidth)
+            .padding(4)
+            .backgroundColor(this.colors[index % this.colors.length])
+            .borderRadius(6)
+            .shadow({ radius: 4, color: '#30000000', offsetX: 0, offsetY: 2 })
+            .position(this.getLabelPosition(index))
+          }, (index: number): string => index.toString())
+        }
+        .width(this.wheelRadius * 2 + this.labelOffset * 2 + 20)
+        .height(this.wheelRadius * 2 + this.labelOffset * 2 + 20)
+        .rotate({ angle: this.rotateAngle })
+
+        // 指针（固定不动）
         Column()
           .width(4)
           .height(40)
           .backgroundColor('#FF0000')
-          .position({ x: this.wheelRadius - 2, y: 0 })
-
-        // 外围字幕标签（固定位置，不随转盘旋转）
-        ForEach(Array.from({ length: this.quantity }, (_, i: number): number => i), (index: number) => {
-          Column() {
-            Text(this.optionTexts[index] || `选项${index + 1}`)
-              .fontSize(this.quantity > 8 ? 10 : 12)
-              .fontColor('#333333')
-              .fontWeight(FontWeight.Medium)
-              .maxLines(2)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-          }
-          .width(this.quantity > 8 ? 50 : 60)
-          .padding(4)
-          .backgroundColor(this.colors[index % this.colors.length])
-          .borderRadius(6)
-          .shadow({ radius: 4, color: '#30000000', offsetX: 0, offsetY: 2 })
-          .position(this.getLabelPosition(index))
-        }, (index: number): string => index.toString())
+          .position({ 
+            x: (this.wheelRadius * 2 + this.labelOffset * 2 + 20) / 2 - 2, 
+            y: (this.labelOffset * 2 + 20) / 2 
+          })
       }
-      .width(this.wheelRadius * 2 + 120) // 增加宽度以容纳字幕
-      .height(this.wheelRadius * 2 + 120) // 增加高度以容纳字幕
+      .width(this.wheelRadius * 2 + this.labelOffset * 2 + 20)
+      .height(this.wheelRadius * 2 + this.labelOffset * 2 + 20)
       .margin({ top: 10 })
 
       // 结果显示
       if (this.selectedIndex >= 0) {
         Text(`恭喜选中：选项${this.selectedIndex + 1}`)
-          .fontSize(20)
+          .fontSize(this.titleFontSize - 4)
           .fontColor('#333333')
           .fontWeight(FontWeight.Bold)
           .margin({ top: 20 })
       }
     }
     .width(Common.DEFAULT_FULL_WIDTH)
-    .layoutWeight(1)
     .justifyContent(FlexAlign.Center)
   }
 }

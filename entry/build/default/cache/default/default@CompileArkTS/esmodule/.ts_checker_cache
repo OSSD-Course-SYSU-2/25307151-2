@@ -1559,21 +1559,16 @@
       "error": false
     },
     "C:\\Users\\MasterT\\Desktop\\Animation\\entry\\src\\main\\ets\\view\\Wheel.ets": {
-      "mtimeMs": 1779180140602.4312,
+      "mtimeMs": 1780407043043.0024,
       "children": [
         "C:\\Users\\MasterT\\Desktop\\Animation\\entry\\src\\main\\ets\\common\\constants\\Const.ets",
-        "F:\\DevEco Studio\\sdk\\default\\openharmony\\ets\\api\\@ohos.curves.d.ts"
+        "F:\\DevEco Studio\\sdk\\default\\openharmony\\ets\\api\\@ohos.curves.d.ts",
+        "C:\\Users\\MasterT\\Desktop\\Animation\\entry\\src\\main\\ets\\common\\utils\\DeviceAdapter.ets"
       ],
       "parent": [
         "C:\\Users\\MasterT\\Desktop\\Animation\\entry\\src\\main\\ets\\pages\\Index.ets"
       ],
-      "error": true,
-      "errorCodes": [
-        34,
-        8,
-        2551,
-        2339
-      ]
+      "error": false
     },
     "C:\\Users\\MasterT\\Desktop\\Animation\\entry\\src\\main\\ets\\view\\CountController.ets": {
       "mtimeMs": 1776159952228.552,
@@ -1597,7 +1592,7 @@
       "error": false
     },
     "C:\\Users\\MasterT\\Desktop\\Animation\\entry\\src\\main\\ets\\pages\\Index.ets": {
-      "mtimeMs": 1778579245240.12,
+      "mtimeMs": 1780406665883.6287,
       "children": [
         "C:\\Users\\MasterT\\Desktop\\Animation\\entry\\src\\main\\ets\\view\\Wheel.ets",
         "C:\\Users\\MasterT\\Desktop\\Animation\\entry\\src\\main\\ets\\view\\CountController.ets",
@@ -1605,7 +1600,8 @@
         "F:\\DevEco Studio\\sdk\\default\\openharmony\\ets\\api\\@ohos.router.d.ts",
         "C:\\Users\\MasterT\\Desktop\\Animation\\entry\\src\\main\\ets\\service\\VoiceRecognitionService.ets",
         "C:\\Users\\MasterT\\Desktop\\Animation\\entry\\src\\main\\ets\\service\\AudioPlayerService.ets",
-        "F:\\DevEco Studio\\sdk\\default\\openharmony\\ets\\api\\@ohos.app.ability.common.d.ts"
+        "F:\\DevEco Studio\\sdk\\default\\openharmony\\ets\\api\\@ohos.app.ability.common.d.ts",
+        "C:\\Users\\MasterT\\Desktop\\Animation\\entry\\src\\main\\ets\\common\\utils\\DeviceAdapter.ets"
       ],
       "parent": [],
       "error": true,
@@ -2648,7 +2644,8 @@
       ],
       "parent": [
         "F:\\DevEco Studio\\sdk\\default\\openharmony\\ets\\kits\\@kit.ArkUI.d.ts",
-        "F:\\DevEco Studio\\sdk\\default\\openharmony\\ets\\api\\@ohos.arkui.advanced.FoldSplitContainer.d.ets"
+        "F:\\DevEco Studio\\sdk\\default\\openharmony\\ets\\api\\@ohos.arkui.advanced.FoldSplitContainer.d.ets",
+        "C:\\Users\\MasterT\\Desktop\\Animation\\entry\\src\\main\\ets\\common\\utils\\DeviceAdapter.ets"
       ],
       "error": false
     },
@@ -3589,6 +3586,20 @@
         "F:\\DevEco Studio\\sdk\\default\\openharmony\\ets\\api\\@ohos.display.d.ts"
       ],
       "error": false
+    },
+    "C:\\Users\\MasterT\\Desktop\\Animation\\entry\\src\\main\\ets\\common\\utils\\DeviceAdapter.ets": {
+      "mtimeMs": 1780406787655.3782,
+      "children": [
+        "F:\\DevEco Studio\\sdk\\default\\openharmony\\ets\\api\\@ohos.display.d.ts"
+      ],
+      "parent": [
+        "C:\\Users\\MasterT\\Desktop\\Animation\\entry\\src\\main\\ets\\pages\\Index.ets",
+        "C:\\Users\\MasterT\\Desktop\\Animation\\entry\\src\\main\\ets\\view\\Wheel.ets"
+      ],
+      "error": true,
+      "errorCodes": [
+        28007
+      ]
     }
   }
 }
